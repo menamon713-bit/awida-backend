@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم - مطعم عويضة</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background: #f5f5f5; color: #333; }
+        .header { background: linear-gradient(135deg, #5d3a1a, #3d2410); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 1.5rem; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 15px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-right: 4px solid #f59e0b; }
+        .stat-card h3 { color: #777; font-size: 0.9rem; margin-bottom: 8px; }
+        .stat-card .number { font-size: 2rem; font-weight: 900; color: #5d3a1a; }
+        .tabs { display: flex; gap: 5px; margin-bottom: 20px; background: white; padding: 5px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .tab { flex: 1; padding: 12px; background: transparent; border: none; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 1rem; font-weight: 700; color: #777; transition: 0.3s; }
+        .tab.active { background: #f59e0b; color: white; }
+        .tab:hover:not(.active) { background: #f5f5f5; }
+        .content { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .content h2 { color: #5d3a1a; margin-bottom: 15px; font-size: 1.3rem; border-bottom: 2px solid #f59e0b; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: right; border-bottom: 1px solid #eee; }
+        th { background: #fafafa; color: #5d3a1a; font-weight: 800; }
+        tr:hover { background: #fafafa; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
+        .badge-pending { background: #fef3c7; color: #d97706; }
+        .badge-confirmed { background: #dbeafe; color: #2563eb; }
+        .badge-delivered { background: #d1fae5; color: #059669; }
+        .badge-cancelled { background: #fee2e2; color: #dc2626; }
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 700; transition: 0.3s; margin: 2px; }
+        .btn-confirm { background: #2563eb; color: white; }
+        .btn-deliver { background: #059669; color: white; }
+        .btn-cancel { background: #dc2626; color: white; }
+        .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+        .empty { text-align: center; padding: 40px; color: #999; font-size: 1.1rem; }
+        .loading { text-align: center; padding: 40px; color: #999; }
+        .price { color: #f59e0b; font-weight: 900; }
+        .actions { display: flex; gap: 3px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🍖 لوحة تحكم مطعم عويضة</h1>
+        <div id="clock"></div>
+    </div>
+
+    <div class="container">
+        <!-- الإحصائيات -->
+        <div class="stats">
+            <div class="stat-card">
+                <h3>📦 الطلبات</h3>
+                <div class="number" id="totalOrders">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>💰 المبيعات</h3>
+                <div class="number" id="totalSales">0 ج</div>
+            </div>
+            <div class="stat-card">
+                <h3>🍽️ الأصناف</h3>
+                <div class="number" id="totalProducts">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>🔥 العروض</h3>
+                <div class="number" id="totalOffers">0</div>
+            </div>
+        </div>
+
+        <!-- التابات -->
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('orders', this)">📦 الطلبات</button>
+            <button class="tab" onclick="showTab('products', this)">🍽️ الأصناف</button>
+            <button class="tab" onclick="showTab('categories', this)">📂 الأقسام</button>
+            <button class="tab" onclick="showTab('offers', this)">🔥 العروض</button>
+        </div>
+
+        <!-- المحتوى -->
+        <div class="content" id="content">
+            <div class="loading">جاري التحميل...</div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:5000';
+
+        // الساعة
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString('ar-EG');
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // الإحصائيات
+        async function loadStats() {
+            try {
+                const [orders, products, offers] = await Promise.all([
+                    fetch(`${API}/api/orders`).then(r => r.json()),
+                    fetch(`${API}/api/products`).then(r => r.json()),
+                    fetch(`${API}/api/offers`).then(r => r.json()),
+                ]);
+                document.getElementById('totalOrders').textContent = orders.length;
+                document.getElementById('totalSales').textContent =
+                    orders.reduce((sum, o) => sum + o.total, 0).toLocaleString() + ' ج';
+                document.getElementById('totalProducts').textContent = products.length;
+                document.getElementById('totalOffers').textContent = offers.length;
+            } catch (e) { console.error(e); }
+        }
+
+        // عرض الطلبات
+        async function showOrders() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<div class="loading">جاري تحميل الطلبات...</div>';
+            try {
+                const orders = await fetch(`${API}/api/orders`).then(r => r.json());
+                if (orders.length === 0) {
+                    content.innerHTML = '<div class="empty">📭 مفيش طلبات لسه</div>';
+                    return;
+                }
+                const statusText = {
+                    pending: 'قيد الانتظار',
+                    confirmed: 'مؤكد',
+                    delivered: 'تم التوصيل',
+                    cancelled: 'ملغي',
+                };
+                content.innerHTML = `
+                    <h2>📦 الطلبات (${orders.length})</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>العميل</th>
+                                <th>الموبايل</th>
+                                <th>العنوان</th>
+                                <th>الإجمالي</th>
+                                <th>الحالة</th>
+                                <th>التاريخ</th>
+                                <th>إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${orders.map(o => `
+                                <tr>
+                                    <td>${o.id}</td>
+                                    <td>${o.customer_name}</td>
+                                    <td>${o.customer_phone}</td>
+                                    <td>${o.customer_address}</td>
+                                    <td class="price">${o.total} ج</td>
+                                    <td>
+                                        <span class="badge badge-${o.status}">
+                                            ${statusText[o.status] || o.status}
+                                        </span>
+                                    </td>
+                                    <td>${new Date(o.created_at).toLocaleString('ar-EG')}</td>
+                                    <td class="actions">
+                                        ${o.status === 'pending' ? `
+                                            <button class="btn btn-confirm" onclick="updateOrder(${o.id}, 'confirmed')">✓ تأكيد</button>
+                                            <button class="btn btn-cancel" onclick="updateOrder(${o.id}, 'cancelled')">✕ إلغاء</button>
+                                        ` : ''}
+                                        ${o.status === 'confirmed' ? `
+                                            <button class="btn btn-deliver" onclick="updateOrder(${o.id}, 'delivered')">✓ توصيل</button>
+                                            <button class="btn btn-cancel" onclick="updateOrder(${o.id}, 'cancelled')">✕ إلغاء</button>
+                                        ` : ''}
+                                        ${o.status === 'delivered' ? '<span style="color:#059669;">✓</span>' : ''}
+                                        ${o.status === 'cancelled' ? '<span style="color:#dc2626;">✕</span>' : ''}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                content.innerHTML = `<div class="empty">❌ خطأ: ${e.message}</div>`;
+            }
+        }
+
+        // تحديث حالة الطلب
+        async function updateOrder(orderId, status) {
+            const statusText = {
+                confirmed: 'مؤكد',
+                delivered: 'تم التوصيل',
+                cancelled: 'ملغي',
+            };
+            
+            if (!confirm(`تأكيد تحديث الطلب #${orderId} إلى "${statusText[status]}"؟`)) return;
+            
+            try {
+                const res = await fetch(`${API}/api/orders/${orderId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({status: status})
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    alert(`✅ تم تحديث الطلب #${orderId}`);
+                    showOrders();
+                    loadStats();
+                } else {
+                    alert(`❌ ${data.error}`);
+                }
+            } catch (e) {
+                alert(`❌ ${e.message}`);
+            }
+        }
+
+        // عرض الأصناف
+        async function showProducts() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<div class="loading">جاري تحميل الأصناف...</div>';
+            try {
+                const products = await fetch(`${API}/api/products`).then(r => r.json());
+                content.innerHTML = `
+                    <h2>🍽️ الأصناف (${products.length})</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>الصنف</th>
+                                <th>الوصف</th>
+                                <th>السعر</th>
+                                <th>السعر القديم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${products.map(p => `
+                                <tr>
+                                    <td>${p.emoji} ${p.id}</td>
+                                    <td><strong>${p.name}</strong></td>
+                                    <td>${p.description || ''}</td>
+                                    <td class="price">${p.price} ج</td>
+                                    <td>${p.old_price ? p.old_price + ' ج' : '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                content.innerHTML = `<div class="empty">❌ خطأ: ${e.message}</div>`;
+            }
+        }
+
+        // عرض الأقسام
+        async function showCategories() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<div class="loading">جاري تحميل الأقسام...</div>';
+            try {
+                const cats = await fetch(`${API}/api/categories`).then(r => r.json());
+                content.innerHTML = `
+                    <h2>📂 الأقسام (${cats.length})</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>الإيموجي</th>
+                                <th>الاسم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${cats.map(c => `
+                                <tr>
+                                    <td>${c.id}</td>
+                                    <td style="font-size: 2rem;">${c.emoji}</td>
+                                    <td><strong>${c.name}</strong></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                content.innerHTML = `<div class="empty">❌ خطأ: ${e.message}</div>`;
+            }
+        }
+
+        // عرض العروض
+        async function showOffers() {
+            const content = document.getElementById('content');
+            content.innerHTML = '<div class="loading">جاري تحميل العروض...</div>';
+            try {
+                const offers = await fetch(`${API}/api/offers`).then(r => r.json());
+                content.innerHTML = `
+                    <h2>🔥 العروض (${offers.length})</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>العرض</th>
+                                <th>الوصف</th>
+                                <th>السعر</th>
+                                <th>السعر القديم</th>
+                                <th>الخصم</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${offers.map(o => {
+                                const discount = o.old_price
+                                    ? Math.round((1 - o.price / o.old_price) * 100)
+                                    : 0;
+                                return `
+                                    <tr>
+                                        <td>${o.emoji} ${o.id}</td>
+                                        <td><strong>${o.name}</strong></td>
+                                        <td>${o.description || ''}</td>
+                                        <td class="price">${o.price} ج</td>
+                                        <td>${o.old_price ? o.old_price + ' ج' : '-'}</td>
+                                        <td><strong style="color: #dc2626;">${discount}%</strong></td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                content.innerHTML = `<div class="empty">❌ خطأ: ${e.message}</div>`;
+            }
+        }
+
+        // التابات
+        function showTab(tab, btn) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            if (tab === 'orders') showOrders();
+            else if (tab === 'products') showProducts();
+            else if (tab === 'categories') showCategories();
+            else if (tab === 'offers') showOffers();
+        }
+
+        // التحميل الأول
+        loadStats();
+        showOrders();
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>
