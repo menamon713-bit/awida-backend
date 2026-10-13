@@ -11,11 +11,22 @@ from models import db, Category, Product, Order, OrderItem
 app = Flask(__name__)
 CORS(app)
 
-# إعداد SQLite
-basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-db_path = os.path.join(basedir, 'awida.db')
+# ═══ إعداد الداتابيز ═══
+turso_url = os.environ.get('TURSO_DATABASE_URL', '')
+turso_token = os.environ.get('TURSO_AUTH_TOKEN', '')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+if turso_url and turso_token:
+    # Turso (SQLite سحابي) — للإنتاج على Vercel
+    clean_url = turso_url.replace('libsql://', '')
+    app.config['SQLALCHEMY_DATABASE_URI'] = (
+        f"sqlite+libsql://{clean_url}?authToken={turso_token}"
+    )
+else:
+    # SQLite محلي — للتطوير
+    basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.path.join(basedir, 'awida.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'awida-secret-key-change-me'
 
