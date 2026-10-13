@@ -1,23 +1,22 @@
+import os
 from flask import Flask
 from models import db
-
-# ⚙️ الإعدادات
-DB_USER = 'root'
-DB_PASSWORD = ''
-DB_HOST = '127.0.0.1'
-DB_PORT = '3306'
-DB_NAME = 'awida_db'
 
 
 def create_app():
     """إنشاء تطبيق Flask مع الداتابيز"""
     app = Flask(__name__)
     
-    # إعدادات الداتابيز
-    app.config['SQLALCHEMY_DATABASE_URI'] = (
-        f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}'
-        f'@{DB_HOST}:{DB_PORT}/{DB_NAME}'
-    )
+    # ═══ إعدادات الداتابيز ═══
+    # على Render: DATABASE_URL بيكون موجود
+    # على Termux: بيستخدم SQLite كـ fallback
+    database_url = os.environ.get('DATABASE_URL', 'sqlite:///awida.db')
+    
+    # Render بيستخدم postgres:// — SQLAlchemy محتاج postgresql://
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = 'awida-secret-key-change-me'
     
@@ -28,7 +27,7 @@ def create_app():
 
 
 def init_database(app):
-    """إنشاء الجداول وإضافة البيانات الأولية"""
+    """إنشاء الجداول"""
     with app.app_context():
         db.create_all()
         print("✅ Database tables created!")
