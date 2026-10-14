@@ -16,13 +16,13 @@ turso_url = os.environ.get('TURSO_DATABASE_URL', '')
 turso_token = os.environ.get('TURSO_AUTH_TOKEN', '')
 
 if turso_url and turso_token:
-    # Turso (SQLite سحابي) — للإنتاج على Vercel
+    # Turso (SQLite سحابي)
     clean_url = turso_url.replace('libsql://', '')
     app.config['SQLALCHEMY_DATABASE_URI'] = (
         f"sqlite+libsql://{clean_url}?authToken={turso_token}"
     )
 else:
-    # SQLite محلي — للتطوير
+    # SQLite محلي (fallback)
     basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     db_path = os.path.join(basedir, 'awida.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
@@ -36,9 +36,18 @@ db.init_app(app)
 # ═══ الصفحة الرئيسية ═══
 @app.route('/')
 def home():
+    turso_url = os.environ.get('TURSO_DATABASE_URL', '')
+    turso_token = os.environ.get('TURSO_AUTH_TOKEN', '')
+    
     return jsonify({
         "message": "Welcome to Awida Restaurant API",
         "version": "1.0",
+        "debug": {
+            "turso_url_set": bool(turso_url),
+            "turso_token_set": bool(turso_token),
+            "turso_url_prefix": turso_url[:30] if turso_url else "NOT SET",
+            "db_uri_prefix": app.config['SQLALCHEMY_DATABASE_URI'][:50],
+        }
     })
 
 
