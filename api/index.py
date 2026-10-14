@@ -51,6 +51,129 @@ def home():
     })
 
 
+# ═══ Seed Database ═══
+@app.route('/api/seed', methods=['GET'])
+def seed_database():
+    try:
+        db.create_all()
+        
+        if Category.query.count() > 0:
+            return jsonify({
+                "message": "Database already seeded",
+                "categories": Category.query.count(),
+                "products": Product.query.count(),
+            })
+        
+        cats = [
+            Category(name='مشويات', emoji='🍖', order=1),
+            Category(name='محمر', emoji='🍗', order=2),
+            Category(name='طواجن', emoji='🍲', order=3),
+            Category(name='أكل بيتي', emoji='🏠', order=4),
+            Category(name='مقبلات', emoji='🥗', order=5),
+            Category(name='عروض', emoji='🔥', order=6),
+        ]
+        for c in cats:
+            db.session.add(c)
+        db.session.commit()
+        
+        # نجيب الأقسام
+        grill = Category.query.filter_by(name='مشويات').first()
+        mahmar = Category.query.filter_by(name='محمر').first()
+        tagen = Category.query.filter_by(name='طواجن').first()
+        home_cat = Category.query.filter_by(name='أكل بيتي').first()
+        side = Category.query.filter_by(name='مقبلات').first()
+        offers = Category.query.filter_by(name='عروض').first()
+        
+        products = [
+            Product(name='كباب مشوي', price=220, emoji='🍖',
+                    description='كباب بلدي مشوي على الفحم، مع أرز بسمتي وسلطة',
+                    category_id=grill.id),
+            Product(name='كفتة مشوية', price=198, old_price=240, emoji='🍖',
+                    description='كفتة لحم مفروم مشوية، مع أرز بسمتي وسلطة',
+                    category_id=grill.id),
+            Product(name='شيش طاووق', price=180, emoji='🍗',
+                    description='شيش طاووق متبل ومشوي، مع أرز وسلطة',
+                    category_id=grill.id),
+            Product(name='ريش ضاني', price=320, emoji='🥩',
+                    description='ريش ضاني طازجة مشوية على الفحم',
+                    category_id=grill.id),
+            Product(name='فراخ مشوية', price=160, emoji='🍗',
+                    description='نصف فرخة مشوية على الفحم مع أرز',
+                    category_id=grill.id),
+            Product(name='لحمة محمرة', price=250, emoji='🥘',
+                    description='لحمة محمرة بطعم أصيل مع أرز',
+                    category_id=mahmar.id),
+            Product(name='فراخ محمرة', price=140, emoji='🍗',
+                    description='فراخ محمرة بالبهارات مع أرز',
+                    category_id=mahmar.id),
+            Product(name='حمام محشي', price=280, emoji='🕊️',
+                    description='حمام محشي ومحمر مع أرز',
+                    category_id=mahmar.id),
+            Product(name='سجق بلدي', price=150, emoji='🌭',
+                    description='سجق بلدي محمر بالطماطم',
+                    category_id=mahmar.id),
+            Product(name='طاجن بامية', price=170, emoji='🍲',
+                    description='طاجن بامية باللحمة في الفرن',
+                    category_id=tagen.id),
+            Product(name='طاجن بطاطس', price=160, emoji='🍲',
+                    description='طاجن بطاطس باللحمة في الفرن',
+                    category_id=tagen.id),
+            Product(name='طاجن فاصوليا', price=155, emoji='🍲',
+                    description='طاجن فاصوليا بيضا باللحمة',
+                    category_id=tagen.id),
+            Product(name='طاجن عكاوي', price=210, emoji='🍲',
+                    description='طاجن عكاوي بالبصل في الفرن',
+                    category_id=tagen.id),
+            Product(name='فتة باللحمة', price=190, emoji='🍛',
+                    description='فتة باللحمة والخل والتوم',
+                    category_id=home_cat.id),
+            Product(name='محشي مشكل', price=130, emoji='🍃',
+                    description='محشي كرنب وورق عنب وكوسة',
+                    category_id=home_cat.id),
+            Product(name='كشري', price=80, emoji='🍚',
+                    description='كشري مصري أصيل',
+                    category_id=home_cat.id),
+            Product(name='رقاق باللحمة', price=200, emoji='🍰',
+                    description='رقاق باللحمة المفرومة',
+                    category_id=home_cat.id),
+            Product(name='سلطة بلدي', price=30, emoji='🥗',
+                    description='سلطة خضراء طازجة',
+                    category_id=side.id),
+            Product(name='طحينة', price=25, emoji='🥣',
+                    description='طحينة بالليمون',
+                    category_id=side.id),
+            Product(name='بابا غنوج', price=35, emoji='🍆',
+                    description='بابا غنوج بالطحينة',
+                    category_id=side.id),
+            Product(name='مخلل مشكل', price=20, emoji='🥒',
+                    description='مخلل بلدي مشكل',
+                    category_id=side.id),
+            Product(name='طبق عويضة المميز', price=98, old_price=139, emoji='🍖',
+                    description='تشكيلة مشويات كاملة',
+                    category_id=offers.id, is_offer=True),
+            Product(name='وجبة عائلية', price=280, old_price=375, emoji='🍗',
+                    description='فرخة كاملة + أرز + سلطة',
+                    category_id=offers.id, is_offer=True),
+            Product(name='طاجن مميز', price=160, old_price=200, emoji='🍲',
+                    description='طاجن لحمة بالبصل',
+                    category_id=offers.id, is_offer=True),
+        ]
+        
+        for p in products:
+            db.session.add(p)
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Seeded successfully",
+            "categories": len(cats),
+            "products": len(products),
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 # ═══ الأقسام ═══
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
